@@ -25,8 +25,8 @@ jobs:
     - name: Setup Clang 17
       run: |
         mkdir -p $HOME/clang
-        wget -q https://github.com/ZyCromerZ/Clang/releases/download/17.0.0git-20231018-release/Clang-17.0.0git-20231018.tar.gz
-        tar -xzf Clang-17.0.0git-20231018.tar.gz -C $HOME/clang
+        wget -q https://github.com/ZyCromerZ/Clang/releases/download/17.0.0-20230725-release/Clang-17.0.0-20230725.tar.gz
+        tar -xzf Clang-17.0.0-20230725.tar.gz -C $HOME/clang
 
     - name: Setup GCC
       run: |
