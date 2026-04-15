@@ -1,0 +1,78 @@
+name: Build blu_spark kernel
+
+on:
+  push:
+    branches: [ master ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+
+    steps:
+    - name: Checkout source
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 1
+
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y git gcc g++ make bc bison flex \
+          libssl-dev libelf-dev python3 python-is-python3 \
+          zip cpio
+
+    - name: Setup Clang 17
+      run: |
+        mkdir -p $HOME/clang
+        wget -q https://github.com/ZyCromerZ/Clang/releases/download/17.0.0git-20231018-release/Clang-17.0.0git-20231018.tar.gz
+        tar -xzf Clang-17.0.0git-20231018.tar.gz -C $HOME/clang
+
+    - name: Setup GCC
+      run: |
+        git clone --depth=1 \
+          https://github.com/LineageOS/android_prebuilts_gcc_linux-x86_aarch64_aarch64-linux-android-4.9 \
+          $HOME/gcc64
+        git clone --depth=1 \
+          https://github.com/LineageOS/android_prebuilts_gcc_linux-x86_arm_arm-linux-androideabi-4.9 \
+          $HOME/gcc32
+
+    - name: Build kernel
+      run: |
+        export PATH=$HOME/clang/bin:$HOME/gcc64/bin:$HOME/gcc32/bin:$PATH
+        export ARCH=arm64
+        export SUBARCH=arm64
+
+        make O=out \
+          ARCH=arm64 \
+          CC=clang \
+          CLANG_TRIPLE=aarch64-linux-gnu- \
+          CROSS_COMPILE=aarch64-linux-android- \
+          CROSS_COMPILE_ARM32=arm-linux-androideabi- \
+          blu_spark_defconfig
+
+        make O=out \
+          ARCH=arm64 \
+          CC=clang \
+          CLANG_TRIPLE=aarch64-linux-gnu- \
+          CROSS_COMPILE=aarch64-linux-android- \
+          CROSS_COMPILE_ARM32=arm-linux-androideabi- \
+          -j$(nproc --all)
+
+    - name: Package with AnyKernel3
+      run: |
+        git clone --depth=1 https://github.com/osm0sis/AnyKernel3 AnyKernel3
+        sed -i 's/device.name1=/device.name1=kebab/' AnyKernel3/anykernel.sh
+        sed -i 's/do.devicecheck=1/do.devicecheck=0/' AnyKernel3/anykernel.sh
+        cp out/arch/arm64/boot/Image.gz-dtb AnyKernel3/ 2>/dev/null || \
+        cp out/arch/arm64/boot/Image.gz AnyKernel3/ 2>/dev/null || \
+        cp out/arch/arm64/boot/Image AnyKernel3/
+        cd AnyKernel3
+        zip -r9 ../blu_spark_docker.zip . -x ".git*"
+
+    - name: Upload artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: blu_spark_docker
+        path: blu_spark_docker.zip
+        retention-days: 7
